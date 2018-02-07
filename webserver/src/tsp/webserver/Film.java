@@ -26,4 +26,8 @@ public class Film
 			return false;
 		}
 	}
+	int HashCode()
+	{
+		return (this.title.hashCode() + this.year);
+	}
 }
