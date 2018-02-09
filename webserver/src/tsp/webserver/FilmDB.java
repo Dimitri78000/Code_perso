@@ -32,4 +32,15 @@ public class FilmDB
 	    return res;
 	}
 	
+	public Recommendations lookup(Film my_film) throws FilmDoesNotExistsException
+	{
+		if(BD.get(my_film) == null)
+		{
+			throw new FilmDoesNotExistsException(my_film.title + " does not exist");
+		}
+		else
+		{
+			
+		}
+	}
 }
