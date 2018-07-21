@@ -1,0 +1,8 @@
+# depslib dependency file v1.0
+1532204114 source:/Users/dimitrileurs/Documents/GitHub/CodeBlock_OpenClassroom_Project/HelloWorld.c
+	<stdio.h>
+
+1532204034 source:/Users/dimitrileurs/Documents/GitHub/CodeBlock_OpenClassroom_Project/main.c
+	<stdio.h>
+	<stdlib.h>
+
