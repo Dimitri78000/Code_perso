@@ -1,4 +1,7 @@
-#To make it work, change the variable path line ~340, and install module if necessary 
+# 
+
+
+# To make it work, change the variable path line ~340, and install module if necessary 
 
 ## Import
 
@@ -336,15 +339,16 @@ def update_parameters(parameters, grads, learning_rate):
 path="C:/Users/dimit/Documents/GitHub/Code_perso/Code_stage/stage_saillance_fusion_neuro" # Use : '/', Don't use : '\' 
 
 ## Creating eye_tracker_simplified in 0 and 1
-""" Now not necessary as the BDD is created
-for k in range(1,7+1): #Number of video
-    for i in range (1, 30+1): #Number of picture in each video, limited by eye_tracker
-        img = cv2.imread(path+"/v"+str(k)+"/eye_tracker/x"+str(i)+".jpg", 0) # 0 means gray_scale
-        
-        cv2.imwrite(path+"/v"+str(k)+"/eye_tracker/xs"+str(i)+".jpg",simplify_img(img,2,1))
-        
-        cv2.imwrite(path+"/v"+str(k)+"/eye_tracker/xs_visual_"+str(i)+".jpg",simplify_img(img,2,255))
-"""
+
+def create_eye_tracker_simplified():
+    for k in range(1,7+1): #Number of video
+        for i in range (1, 30+1): #Number of picture in each video, limited by eye_tracker
+            img = cv2.imread(path+"/v"+str(k)+"/eye_tracker/x"+str(i)+".jpg", 0) # 0 means gray_scale
+            
+            cv2.imwrite(path+"/v"+str(k)+"/eye_tracker/xs"+str(i)+".jpg",simplify_img(img,2,1))
+            
+            cv2.imwrite(path+"/v"+str(k)+"/eye_tracker/xs_visual_"+str(i)+".jpg",simplify_img(img,2,255))
+
 
 
 def simplify_img(img, seuil_division, high): # high = 1 or 255
@@ -367,27 +371,28 @@ def simplify_img(img, seuil_division, high): # high = 1 or 255
 
         
 ## Create the library "images" with all image
-""" Launch this code one time to create the librairy images
-images={}
-for k in range(1,7+1): #Number of video
-    for i in range (1, 30+1): #Number of picture in each video, limited by eye_tracker
+# Launch this code one time to create the librairy images
+def create_librairy_images():
+    images={}
+    for k in range(1,7+1): #Number of video
+        for i in range (1, 30+1): #Number of picture in each video, limited by eye_tracker
+            
+            img_i =  cv2.imread(path+"/v"+str(k)+"/intensity/i"+str(i)+".jpg", 0) 
+            images["v"+str(k)+"i"+str(i)] = img_i
+            
+            img_c =  cv2.imread(path+"/v"+str(k)+"/color/c"+str(i)+".jpg", 0) 
+            images["v"+str(k)+"c"+str(i)] = img_c
+            
+            img_m =  cv2.imread(path+"/v"+str(k)+"/motion/m"+str(i)+".jpg", 0) 
+            images["v"+str(k)+"m"+str(i)] = img_m
+            
+            img_o =  cv2.imread(path+"/v"+str(k)+"/orientation/o"+str(i)+".jpg", 0) 
+            images["v"+str(k)+"o"+str(i)] = img_o
+            
+            img_xs = cv2.imread(path+"/v"+str(k)+"/eye_tracker/xs"+str(i)+".jpg", 0) 
+            images["v"+str(k)+"xs"+str(i)] = img_xs
         
-        img_i =  cv2.imread(path+"/v"+str(k)+"/intensity/i"+str(i)+".jpg", 0) 
-        images["v"+str(k)+"i"+str(i)] = img_i
-        
-        img_c =  cv2.imread(path+"/v"+str(k)+"/color/c"+str(i)+".jpg", 0) 
-        images["v"+str(k)+"c"+str(i)] = img_c
-        
-        img_m =  cv2.imread(path+"/v"+str(k)+"/motion/m"+str(i)+".jpg", 0) 
-        images["v"+str(k)+"m"+str(i)] = img_m
-        
-        img_o =  cv2.imread(path+"/v"+str(k)+"/orientation/o"+str(i)+".jpg", 0) 
-        images["v"+str(k)+"o"+str(i)] = img_o
-        
-        img_xs = cv2.imread(path+"/v"+str(k)+"/eye_tracker/xs"+str(i)+".jpg", 0) 
-        images["v"+str(k)+"xs"+str(i)] = img_xs
-        
-"""
+
 ## Create librairy x and y
 
 def create_x_and_y(images, steps ,shuffle):
@@ -402,7 +407,6 @@ def create_x_and_y(images, steps ,shuffle):
     
             for i in range (0, images["v1i1"].shape[0],steps): # lign
                 for j in range(0, images["v1i1"].shape[1],steps): # colomn
-                    print("v"+str(k)+"i"+str(l))
                     pixel_i = images["v"+str(k)+"i"+str(l)][i][j]
                     pixel_c = images["v"+str(k)+"c"+str(l)][i][j]
                     pixel_m = images["v"+str(k)+"m"+str(l)][i][j]
@@ -431,11 +435,40 @@ def create_x_and_y(images, steps ,shuffle):
                         x_shuffle[str(index[compt])] = x[str(compt)]
                         y_shuffle[str(index[compt])] = y[str(compt)]
                         compt+=1
+                        
+        assert( len(x)==len(y)==len(x_shuffle)==len(y_shuffle) )
         return x_shuffle,y_shuffle
         
     else:
+        assert(len(x)==len(y))
         return x,y
     
     
     
 x,y=create_x_and_y(images, 300, True)
+
+## Create x_train, y_train, x_test, y_test
+
+def create_train_test(x,y,pourcentage_of_test=0.8): #pourcentage_of_test
+
+    assert(len(x)==len(y))
+    
+    train_size=int(len(x)*pourcentage_of_test)
+    test_size=len(x) - train_size
+    print("Train size : "+str(train_size)+", and test size : " + str(test_size) )
+    
+    x_train, y_train = x[str(1)].T, y[str(1)].T
+    x_test, y_test = x[str(train_size+1)].T, y[str(train_size+1)].T
+    
+    for k in range(1,train_size):
+        x_train = np.concatenate((x_train, x[str(k)].T), axis=1)
+        y_train = np.concatenate((y_train, y[str(k)].T), axis=1)
+        
+    for k in range(train_size+2,len(x)):
+        x_test = np.concatenate((x_test, x[str(k)].T), axis=1)
+        y_test = np.concatenate((y_test, y[str(k)].T), axis=1)
+    
+    return x_train, y_train, x_test, y_test
+
+x_train, y_train, x_test, y_test = create_train_test(x,y,pourcentage_of_test=0.8)
+print(x_train.shape)
