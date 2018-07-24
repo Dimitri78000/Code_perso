@@ -359,7 +359,7 @@ def simplify_img(img, seuil_division, high): # high = 1 or 255
     #Then, we change pixel in either 0 or 1/255
     for i in range (0, img.shape[0]): 
         for j in range(0, img.shape[1]): 
-            if img[i][j] > (max/seuil_division) :
+            if img[i][j] > (max/seuil_division):
                 img[i][j] = high # Put 255 if you want to cv2.imshow('image',img) and see what it is doing
             else:
                 img[i][j] = 0
@@ -367,9 +367,8 @@ def simplify_img(img, seuil_division, high): # high = 1 or 255
 
         
 ## Create the library "images" with all image
-
+""" Launch this code one time to create the librairy images
 images={}
-
 for k in range(1,7+1): #Number of video
     for i in range (1, 30+1): #Number of picture in each video, limited by eye_tracker
         
@@ -388,8 +387,55 @@ for k in range(1,7+1): #Number of video
         img_xs = cv2.imread(path+"/v"+str(k)+"/eye_tracker/xs"+str(i)+".jpg", 0) 
         images["v"+str(k)+"xs"+str(i)] = img_xs
         
-        
-        
+"""
+## Create librairy x and y
 
-
-##
+def create_x_and_y(images, steps ,shuffle):
+    
+    x,y={},{}
+    
+    #First, we create x and y librairy thanks to index and a group of pixels
+    compt=0
+    index=[]
+    for k in range(1,1+7): #(1,7+1) Number of video
+        for l in range (1, 30+1): #(1, 30+1) Number of picture in each video, limited by eye_tracker
+    
+            for i in range (0, images["v1i1"].shape[0],steps): # lign
+                for j in range(0, images["v1i1"].shape[1],steps): # colomn
+                    print("v"+str(k)+"i"+str(l))
+                    pixel_i = images["v"+str(k)+"i"+str(l)][i][j]
+                    pixel_c = images["v"+str(k)+"c"+str(l)][i][j]
+                    pixel_m = images["v"+str(k)+"m"+str(l)][i][j]
+                    pixel_o = images["v"+str(k)+"o"+str(l)][i][j]
+                    pixel_xs = images["v"+str(k)+"xs"+str(l)][i][j]
+                    
+                    array_x=np.array([[i,j,pixel_i,pixel_c,pixel_m,pixel_o]]) #two [[]] against weird "rank one" array with numpy librairy
+                    array_y=np.array([[pixel_xs]])
+                    
+                    x[str(compt)]=array_x
+                    y[str(compt)]=array_y
+                    
+                    index.append(compt)
+                    compt+=1
+                    
+    #Then, we shuffle the index
+    if shuffle:
+        rd.shuffle(index)
+        
+        x_shuffle,y_shuffle={},{}
+        compt=0
+        for k in range(1,7+1): #(1,7+1) Number of video
+            for l in range (1, 30+1): #(1, 30+1) Number of picture in each video, limited by eye_tracker
+                for i in range (0, images["v1i1"].shape[0],steps): # lign
+                    for j in range(0, images["v1i1"].shape[1],steps): # colomn
+                        x_shuffle[str(index[compt])] = x[str(compt)]
+                        y_shuffle[str(index[compt])] = y[str(compt)]
+                        compt+=1
+        return x_shuffle,y_shuffle
+        
+    else:
+        return x,y
+    
+    
+    
+x,y=create_x_and_y(images, 300, True)
