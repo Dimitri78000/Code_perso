@@ -336,18 +336,16 @@ def update_parameters(parameters, grads, learning_rate):
 path="C:/Users/dimit/Documents/GitHub/Code_perso/Code_stage/stage_saillance_fusion_neuro" # Use : '/', Don't use : '\' 
 
 ## Creating eye_tracker_simplified in 0 and 1
-"""
+""" Now not necessary as the BDD is created
 for k in range(1,7+1): #Number of video
     for i in range (1, 30+1): #Number of picture in each video, limited by eye_tracker
-        if (i%8)==0:
-            continue #it is weird and it is because of our database. In eye_tracker, there is no x8.jpg, x16.jpg... 
         img = cv2.imread(path+"/v"+str(k)+"/eye_tracker/x"+str(i)+".jpg", 0) # 0 means gray_scale
         
         cv2.imwrite(path+"/v"+str(k)+"/eye_tracker/xs"+str(i)+".jpg",simplify_img(img,2,1))
         
         cv2.imwrite(path+"/v"+str(k)+"/eye_tracker/xs_visual_"+str(i)+".jpg",simplify_img(img,2,255))
-
 """
+
 
 def simplify_img(img, seuil_division, high): # high = 1 or 255
     # First, we find the maximum pixel in the picture
@@ -370,4 +368,28 @@ def simplify_img(img, seuil_division, high): # high = 1 or 255
         
 ## Create the library "images" with all image
 
-print(sigmoid(5))
+images={}
+
+for k in range(1,7+1): #Number of video
+    for i in range (1, 30+1): #Number of picture in each video, limited by eye_tracker
+        
+        img_i =  cv2.imread(path+"/v"+str(k)+"/intensity/i"+str(i)+".jpg", 0) 
+        images["v"+str(k)+"i"+str(i)] = img_i
+        
+        img_c =  cv2.imread(path+"/v"+str(k)+"/color/c"+str(i)+".jpg", 0) 
+        images["v"+str(k)+"c"+str(i)] = img_c
+        
+        img_m =  cv2.imread(path+"/v"+str(k)+"/motion/m"+str(i)+".jpg", 0) 
+        images["v"+str(k)+"m"+str(i)] = img_m
+        
+        img_o =  cv2.imread(path+"/v"+str(k)+"/orientation/o"+str(i)+".jpg", 0) 
+        images["v"+str(k)+"o"+str(i)] = img_o
+        
+        img_xs = cv2.imread(path+"/v"+str(k)+"/eye_tracker/xs"+str(i)+".jpg", 0) 
+        images["v"+str(k)+"xs"+str(i)] = img_xs
+        
+        
+        
+
+
+##
