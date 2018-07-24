@@ -334,6 +334,113 @@ def update_parameters(parameters, grads, learning_rate):
         
     return parameters
 
+def L_layer_model(X, Y, layers_dims, learning_rate = 0.0075, num_iterations = 3000, print_cost=False):#lr was 0.009
+    """
+    Implements a L-layer neural network: [LINEAR->RELU]*(L-1)->LINEAR->SIGMOID.
+    
+    Arguments:
+    X -- data, numpy array of shape (number of examples, num_px * num_px * 3)
+    Y -- true "label" vector (containing 0 if cat, 1 if non-cat), of shape (1, number of examples)
+    layers_dims -- list containing the input size and each layer size, of length (number of layers + 1).
+    learning_rate -- learning rate of the gradient descent update rule
+    num_iterations -- number of iterations of the optimization loop
+    print_cost -- if True, it prints the cost every 100 steps
+    
+    Returns:
+    parameters -- parameters learnt by the model. They can then be used to predict.
+    """
+
+    np.random.seed(1)
+    costs = []                         # keep track of cost
+    
+    # Parameters initialization.
+    parameters = initialize_parameters_deep(layers_dims)
+    
+    # Loop (gradient descent)
+    for i in range(0, num_iterations):
+
+        # Forward propagation: [LINEAR -> RELU]*(L-1) -> LINEAR -> SIGMOID.
+        AL, caches = L_model_forward(X, parameters)
+        
+        # Compute cost.
+        cost = compute_cost(AL, Y)
+    
+        # Backward propagation.
+        grads = L_model_backward(AL, Y, caches)
+
+ 
+        # Update parameters.
+        parameters = update_parameters(parameters, grads, learning_rate=learning_rate)
+                
+        # Print the cost every 100 training example
+        if print_cost and i % 100 == 0:
+            print ("Cost after iteration %i: %f" %(i, cost))
+        if print_cost and i % 100 == 0:
+            costs.append(cost)
+            
+    # plot the cost
+    plt.plot(np.squeeze(costs))
+    plt.ylabel('cost')
+    plt.xlabel('iterations (per tens)')
+    plt.title("Learning rate =" + str(learning_rate))
+    plt.show()
+    
+    return parameters
+def predict(X, y, parameters):
+    """
+    This function is used to predict the results of a  L-layer neural network.
+    
+    Arguments:
+    X -- data set of examples you would like to label
+    parameters -- parameters of the trained model
+    
+    Returns:
+    p -- predictions for the given dataset X
+    """
+    
+    m = X.shape[1]
+    n = len(parameters) // 2 # number of layers in the neural network
+    p = np.zeros((1,m))
+    
+    # Forward propagation
+    probas, caches = L_model_forward(X, parameters)
+
+    
+    # convert probas to 0/1 predictions
+    for i in range(0, probas.shape[1]):
+        if probas[0,i] > 0.5:
+            p[0,i] = 1
+        else:
+            p[0,i] = 0
+    
+    #print results
+    #print ("predictions: " + str(p))
+    #print ("true labels: " + str(y))
+    print("Accuracy: "  + str(np.sum((p == y)/m)))
+        
+    return p
+
+
+
+def print_mislabeled_images(classes, X, y, p):
+    """
+    Plots images where predictions and truth were different.
+    X -- dataset
+    y -- true labels
+    p -- predictions
+    """
+    a = p + y
+    mislabeled_indices = np.asarray(np.where(a == 1))
+    plt.rcParams['figure.figsize'] = (40.0, 40.0) # set default size of plots
+    num_images = len(mislabeled_indices[0])
+    for i in range(num_images):
+        index = mislabeled_indices[1][i]
+        
+        plt.subplot(2, num_images, i + 1)
+        plt.imshow(X[:,index].reshape(64,64,3), interpolation='nearest')
+        plt.axis('off')
+        plt.title("Prediction: " + classes[int(p[0,index])].decode("utf-8") + " \n Class: " + classes[y[0,index]].decode("utf-8"))
+
 ## Path !! YOU HAVE TO CHANGE IT DO YOUR CONFIGURATION !!
 
 path="C:/Users/dimit/Documents/GitHub/Code_perso/Code_stage/stage_saillance_fusion_neuro" # Use : '/', Don't use : '\' 
@@ -391,19 +498,22 @@ def create_librairy_images():
             
             img_xs = cv2.imread(path+"/v"+str(k)+"/eye_tracker/xs"+str(i)+".jpg", 0) 
             images["v"+str(k)+"xs"+str(i)] = img_xs
+    return images
         
 
 ## Create librairy x and y
 
-def create_x_and_y(images, steps ,shuffle):
+def create_x_and_y(images, steps ,shuffle,video,image):
+    assert(video>=1 and video<=7)
+    assert(image>=1 and image<=30)
     
     x,y={},{}
     
     #First, we create x and y librairy thanks to index and a group of pixels
     compt=0
     index=[]
-    for k in range(1,1+7): #(1,7+1) Number of video
-        for l in range (1, 30+1): #(1, 30+1) Number of picture in each video, limited by eye_tracker
+    for k in range(1,video+1): #(1,7+1) Number of video
+        for l in range (1, image+1): #(1, 30+1) Number of picture in each video, limited by eye_tracker
     
             for i in range (0, images["v1i1"].shape[0],steps): # lign
                 for j in range(0, images["v1i1"].shape[1],steps): # colomn
@@ -414,6 +524,8 @@ def create_x_and_y(images, steps ,shuffle):
                     pixel_xs = images["v"+str(k)+"xs"+str(l)][i][j]
                     
                     array_x=np.array([[i,j,pixel_i,pixel_c,pixel_m,pixel_o]]) #two [[]] against weird "rank one" array with numpy librairy
+                    #array_x=np.array([[pixel_i,pixel_c,pixel_m,pixel_o]]) #two [[]] against weird "rank one" array with numpy librairy
+                    
                     array_y=np.array([[pixel_xs]])
                     
                     x[str(compt)]=array_x
@@ -428,8 +540,8 @@ def create_x_and_y(images, steps ,shuffle):
         
         x_shuffle,y_shuffle={},{}
         compt=0
-        for k in range(1,7+1): #(1,7+1) Number of video
-            for l in range (1, 30+1): #(1, 30+1) Number of picture in each video, limited by eye_tracker
+        for k in range(1,video+1): #(1,7+1) Number of video
+            for l in range (1, image+1): #(1, 30+1) Number of picture in each video, limited by eye_tracker
                 for i in range (0, images["v1i1"].shape[0],steps): # lign
                     for j in range(0, images["v1i1"].shape[1],steps): # colomn
                         x_shuffle[str(index[compt])] = x[str(compt)]
@@ -442,12 +554,48 @@ def create_x_and_y(images, steps ,shuffle):
     else:
         assert(len(x)==len(y))
         return x,y
+## Balance 1 and 0
+def taux_de_1(y):
+    n=len(y)
+    compt=0
+    for k in range(1,n):
+        if(y[str(k)]==1):
+            compt+=1
+    return compt, compt/n
     
+def balance_x_y(x,y):
+    x_balanced,y_balanced={},{}
+    nbre_de_1,taux = taux_de_1(y)
+    compt_x,compt_y=0,0
     
-    
-x,y=create_x_and_y(images, 300, True)
+    n=len(x)
+    assert(n==len(y))
+    compt=0
+    index=[]
+    for k in range(1,n):
+        if(y[str(k)]==0):
+            if(compt_x<nbre_de_1):
+                x_balanced[str(compt)]=x[str(k)]
+                y_balanced[str(compt)]=y[str(k)]
+                index.append(compt)
+                compt+=1
+                compt_x+=1
+        else:
+            if(compt_y<nbre_de_1):
+                x_balanced[str(compt)]=x[str(k)]
+                y_balanced[str(compt)]=y[str(k)]
+                index.append(compt)
+                compt+=1
+                compt_y+=1
+    rd.shuffle(index)
+    x_balanced_shuffle,y_balanced_shuffle={},{}
+    for k in range(0,len(index)):
+        x_balanced_shuffle[str(index[k])] = x_balanced[str(k)]
+        y_balanced_shuffle[str(index[k])] = y_balanced[str(k)]
+    return x_balanced,y_balanced
+  
 
-## Create x_train, y_train, x_test, y_test
+## Create train_x, train_y, test_x, test_y
 
 def create_train_test(x,y,pourcentage_of_test=0.8): #pourcentage_of_test
 
@@ -457,18 +605,39 @@ def create_train_test(x,y,pourcentage_of_test=0.8): #pourcentage_of_test
     test_size=len(x) - train_size
     print("Train size : "+str(train_size)+", and test size : " + str(test_size) )
     
-    x_train, y_train = x[str(1)].T, y[str(1)].T
-    x_test, y_test = x[str(train_size+1)].T, y[str(train_size+1)].T
+    train_x, train_y = x[str(1)].T, y[str(1)].T
+    test_x, test_y = x[str(train_size+1)].T, y[str(train_size+1)].T
     
-    for k in range(1,train_size):
-        x_train = np.concatenate((x_train, x[str(k)].T), axis=1)
-        y_train = np.concatenate((y_train, y[str(k)].T), axis=1)
+    for k in range(2,train_size):
+        train_x = np.concatenate((train_x, x[str(k)].T), axis=1)
+        train_y = np.concatenate((train_y, y[str(k)].T), axis=1)
         
     for k in range(train_size+2,len(x)):
-        x_test = np.concatenate((x_test, x[str(k)].T), axis=1)
-        y_test = np.concatenate((y_test, y[str(k)].T), axis=1)
+        test_x = np.concatenate((test_x, x[str(k)].T), axis=1)
+        test_y = np.concatenate((test_y, y[str(k)].T), axis=1)
     
-    return x_train, y_train, x_test, y_test
+    return train_x, train_y, test_x, test_y
 
-x_train, y_train, x_test, y_test = create_train_test(x,y,pourcentage_of_test=0.8)
-print(x_train.shape)
+##
+
+
+## Time to have result !
+
+#images = create_librairy_images()
+
+x,y=create_x_and_y(images, 20, False, 7, 30)
+x,y=balance_x_y(x,y)
+print(taux_de_1(y))
+
+print("Size of the data set :" +str(len(x)) )
+
+train_x, train_y, test_x, test_y = create_train_test(x,y,pourcentage_of_test=0.8)
+
+layers_dims=[6,3,1]
+parameters = L_layer_model(train_x, train_y, layers_dims, learning_rate = 0.0075, num_iterations = 2000, print_cost = True)
+
+print("Train accuracy :")
+pred_train = predict(train_x, train_y, parameters)
+print("Test accuracy :")
+pred_testpred_tes  = predict(test_x, test_y, parameters)
+
