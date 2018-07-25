@@ -420,6 +420,64 @@ def predict(X, y, parameters):
         
     return p
 
+def create_x_and_y_for_test(images,parameters,video_num,image_num,steps=1):
+    
+    assert(video_num>= 1 and video_num<= 7)
+    assert(image_num>= 1 and image_num<= 30)
+    
+    
+    flag_create_x_y=True
+    
+    img_i = cv2.imread(path+"/v"+str(video_num)+"/intensity/s_i"+str(image_num)+".jpg", 0)
+    img_c = cv2.imread(path+"/v"+str(video_num)+"/color/s_c"+str(image_num)+".jpg", 0)
+    img_m = cv2.imread(path+"/v"+str(video_num)+"/motion/s_m"+str(image_num)+".jpg", 0)
+    img_o = cv2.imread(path+"/v"+str(video_num)+"/orientation/s_o"+str(image_num)+".jpg", 0)
+    img_xs= cv2.imread(path+"/v"+str(video_num)+"/eye_tracker/s_xs"+str(image_num)+".jpg", 0)
+    
+    for i in range (0, img_i.shape[0],steps): # lign all images have the same shape, images["v1i1"] or images["v5m19"]
+        for j in range(0, img_i.shape[1],steps): # colomn
+            pixel_i = img_i[i][j]
+            pixel_c = img_c[i][j]
+            pixel_m = img_m[i][j]
+            pixel_o = img_o[i][j]
+            pixel_xs = img_xs[i][j]
+            
+            array_x=np.array([[i,j,pixel_i,pixel_c,pixel_m,pixel_o]]).T #two [[]] against weird "rank one" array with numpy librairy
+            #array_x=np.array([[pixel_i,pixel_c,pixel_m,pixel_o]]) #two [[]] against weird "rank one" array with numpy librairy
+                    
+            array_y=np.array([[pixel_xs]])
+            
+            if (flag_create_x_y):
+                x,y=array_x,array_y
+                flag_create_x_y=False
+            else:
+                x = np.concatenate((x, array_x), axis=1) # We can't use np.append because it create weird "rank 1 shape = (6,)" array
+                y = np.concatenate((y, array_y), axis=1)
+    probas, caches = L_model_forward(x, parameters)
+    
+    print("Construction de y_neuro et y_neuro_visuel :")
+    
+    y_neuro=np.zeros((288,360)) 
+    y_neuro_visuel=np.zeros((288,360)) 
+    for k in range (0,probas.shape[1]): # probas.shape[1] = 360 * 288 = 103680
+        i=k//360
+        j=k%360
+        if round(probas[0][k])==0:
+            y_neuro[i][j] = 0
+            y_neuro_visuel[i][j] =0
+        else:
+            y_neuro[i][j] = 1
+            y_neuro_visuel[i][j] = 255
+    cv2.imshow('image',y_neuro_visuel)
+    
+    
+    
+    return y_neuro,y_neuro_visuel
+    
+def create_eye_tracker_with_neuro(x, parameters):
+    img = cv2.imread(images["blank"],0)
+    probas, caches = L_model_forward(x, parameters)
+    
 
 
 def print_mislabeled_images(classes, X, y, p):
@@ -481,6 +539,7 @@ def simplify_img(img, seuil_division, high): # high = 1 or 255
 # Launch this code one time to create the librairy images
 def create_librairy_images():
     images={}
+    images["blank"]= cv2.imread(path+"/blank.jpg", 0) 
     for k in range(1,7+1): #Number of video
         for i in range (1, 30+1): #Number of picture in each video, limited by eye_tracker
             
@@ -512,10 +571,10 @@ def create_x_and_y(images, steps ,shuffle,video,image):
     #First, we create x and y librairy thanks to index and a group of pixels
     compt=0
     index=[]
-    for k in range(1,video+1): #(1,7+1) Number of video
-        for l in range (1, image+1): #(1, 30+1) Number of picture in each video, limited by eye_tracker
+    for k in range(1,video+1): # Number of video
+        for l in range (1, image+1): # Number of picture in each video, limited by eye_tracker
     
-            for i in range (0, images["v1i1"].shape[0],steps): # lign
+            for i in range (0, images["v1i1"].shape[0],steps): # lign all images have the same shape, images["v1i1"] or images["v5m19"]
                 for j in range(0, images["v1i1"].shape[1],steps): # colomn
                     pixel_i = images["v"+str(k)+"i"+str(l)][i][j]
                     pixel_c = images["v"+str(k)+"c"+str(l)][i][j]
@@ -540,8 +599,8 @@ def create_x_and_y(images, steps ,shuffle,video,image):
         
         x_shuffle,y_shuffle={},{}
         compt=0
-        for k in range(1,video+1): #(1,7+1) Number of video
-            for l in range (1, image+1): #(1, 30+1) Number of picture in each video, limited by eye_tracker
+        for k in range(1,video+1): # Number of video
+            for l in range (1, image+1): # Number of picture in each video, limited by eye_tracker
                 for i in range (0, images["v1i1"].shape[0],steps): # lign
                     for j in range(0, images["v1i1"].shape[1],steps): # colomn
                         x_shuffle[str(index[compt])] = x[str(compt)]
@@ -563,7 +622,7 @@ def taux_de_1(y):
             compt+=1
     return compt, compt/n
     
-def balance_x_y(x,y):
+def balance_x_y(x,y, shuffle):
     x_balanced,y_balanced={},{}
     nbre_de_1,taux = taux_de_1(y)
     compt_x,compt_y=0,0
@@ -587,12 +646,15 @@ def balance_x_y(x,y):
                 index.append(compt)
                 compt+=1
                 compt_y+=1
-    rd.shuffle(index)
-    x_balanced_shuffle,y_balanced_shuffle={},{}
-    for k in range(0,len(index)):
-        x_balanced_shuffle[str(index[k])] = x_balanced[str(k)]
-        y_balanced_shuffle[str(index[k])] = y_balanced[str(k)]
-    return x_balanced,y_balanced
+    if shuffle:
+        rd.shuffle(index)
+        x_balanced_shuffle,y_balanced_shuffle={},{}
+        for k in range(0,len(index)):
+            x_balanced_shuffle[str(index[k])] = x_balanced[str(k)]
+            y_balanced_shuffle[str(index[k])] = y_balanced[str(k)]
+        return x_balanced_shuffle,y_balanced_shuffle
+    else:
+        return x_balanced,y_balanced
   
 
 ## Create train_x, train_y, test_x, test_y
@@ -623,17 +685,18 @@ def create_train_test(x,y,pourcentage_of_test=0.8): #pourcentage_of_test
 
 ## Time to have result !
 
-#images = create_librairy_images()
+images = create_librairy_images()
 
-x,y=create_x_and_y(images, 20, False, 7, 30)
-x,y=balance_x_y(x,y)
+x,y=create_x_and_y(images, 20, True, 7, 30) 
+x,y=balance_x_y(x,y, True)
 print(taux_de_1(y))
 
 print("Size of the data set :" +str(len(x)) )
 
-train_x, train_y, test_x, test_y = create_train_test(x,y,pourcentage_of_test=0.8)
+train_x, train_y, test_x, test_y = create_train_test(x,y,pourcentage_of_test=0.9)
 
 layers_dims=[6,3,1]
+#layers_dims=[4,2,1]
 parameters = L_layer_model(train_x, train_y, layers_dims, learning_rate = 0.0075, num_iterations = 2000, print_cost = True)
 
 print("Train accuracy :")
@@ -641,3 +704,4 @@ pred_train = predict(train_x, train_y, parameters)
 print("Test accuracy :")
 pred_testpred_tes  = predict(test_x, test_y, parameters)
 
+y_neuro,y_neuro_visuel = create_x_and_y_for_test(images,parameters,1,1,steps=1)
