@@ -469,6 +469,7 @@ def create_x_and_y_for_test(images,parameters,video_num,image_num,steps=1):
             y_neuro[i][j] = 1
             y_neuro_visuel[i][j] = 255
     cv2.imshow('image',y_neuro_visuel)
+    cv2.resizeWindow('image', 720,576)
     
     
     
@@ -503,6 +504,58 @@ def print_mislabeled_images(classes, X, y, p):
 
 path="C:/Users/dimit/Documents/GitHub/Code_perso/Code_stage/stage_saillance_fusion_neuro" # Use : '/', Don't use : '\' 
 
+
+## Resize in smaller picture
+
+def image_resize(image, width = None, height = None, inter = cv2.INTER_AREA):
+    # initialize the dimensions of the image to be resized and
+    # grab the image size
+    dim = None
+    (h, w) = image.shape[:2]
+
+    # if both the width and height are None, then return the
+    # original image
+    if width is None and height is None:
+        return image
+
+    # check to see if the width is None
+    if width is None:
+        # calculate the ratio of the height and construct the
+        # dimensions
+        r = height / float(h)
+        dim = (int(w * r), height)
+
+    # otherwise, the height is None
+    else:
+        # calculate the ratio of the width and construct the
+        # dimensions
+        r = width / float(w)
+        dim = (width, int(h * r))
+
+    # resize the image
+    resized = cv2.resize(image, dim, interpolation = inter)
+
+    # return the resized image
+    return resize
+def resize_data_set():
+    for k in range(1,7+1): #Number of video
+        for i in range (1, 30+1): #Number of picture in each video, limited by eye_tracker
+            
+            img_i =  cv2.imread(path+"/v"+str(k)+"/intensity/i"+str(i)+".jpg", 0) 
+            cv2.imwrite(path+"/v"+str(k)+"/intensity/3s_i"+str(i)+".jpg",image_resize(img_i,width=90) )
+            
+            img_c =  cv2.imread(path+"/v"+str(k)+"/color/c"+str(i)+".jpg", 0) 
+            cv2.imwrite(path+"/v"+str(k)+"/color/3s_c"+str(i)+".jpg",image_resize(img_c,width=90) )
+            
+            img_m =  cv2.imread(path+"/v"+str(k)+"/motion/m"+str(i)+".jpg", 0) 
+            cv2.imwrite(path+"/v"+str(k)+"/motion/3s_m"+str(i)+".jpg",image_resize(img_m,width=90) )
+            
+            img_o =  cv2.imread(path+"/v"+str(k)+"/orientation/o"+str(i)+".jpg", 0) 
+            cv2.imwrite(path+"/v"+str(k)+"/orientation/3s_o"+str(i)+".jpg",image_resize(img_o,width=90) )
+            
+            img_x =  cv2.imread(path+"/v"+str(k)+"/eye_tracker/x"+str(i)+".jpg", 0) 
+            cv2.imwrite(path+"/v"+str(k)+"/eye_tracker/4s_x"+str(i)+".jpg",image_resize(img_x,width=45) )
+
 ## Creating eye_tracker_simplified in 0 and 1
 
 def create_eye_tracker_simplified():
@@ -516,11 +569,11 @@ def create_eye_tracker_simplified():
 
 
 
-def simplify_img(img, seuil_division, high): # high = 1 or 255
+def simplify_img(img, seuil_division, high=1): # high = 1 or 255
     # First, we find the maximum pixel in the picture
     temp_max = img[0][0]
-    for i in range (0, img.shape[0], 5): #i+=5 pour aller plus vite
-        for j in range(0, img.shape[1], 5): #j+=5 pour aller plus vite
+    for i in range (0, img.shape[0]): 
+        for j in range(0, img.shape[1]): 
             if img[i][j] > temp_max :
                 temp_max = img[i][j]
     max = temp_max
@@ -685,9 +738,9 @@ def create_train_test(x,y,pourcentage_of_test=0.8): #pourcentage_of_test
 
 ## Time to have result !
 
-images = create_librairy_images()
+#images = create_librairy_images()
 
-x,y=create_x_and_y(images, 20, True, 7, 30) 
+x,y=create_x_and_y(images, 100, True, 7, 30) 
 x,y=balance_x_y(x,y, True)
 print(taux_de_1(y))
 
