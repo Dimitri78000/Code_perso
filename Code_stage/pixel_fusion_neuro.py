@@ -89,7 +89,29 @@ def sigmoid_backward(dA, cache):
     return dZ
 
 ## Core functions
-
+def initialize_parameters_he(layers_dims):
+    """
+    Arguments:
+    layer_dims -- python array (list) containing the size of each layer.
+    
+    Returns:
+    parameters -- python dictionary containing your parameters "W1", "b1", ..., "WL", "bL":
+                    W1 -- weight matrix of shape (layers_dims[1], layers_dims[0])
+                    b1 -- bias vector of shape (layers_dims[1], 1)
+                    ...
+                    WL -- weight matrix of shape (layers_dims[L], layers_dims[L-1])
+                    bL -- bias vector of shape (layers_dims[L], 1)
+    """
+    
+    np.random.seed(3)
+    parameters = {}
+    L = len(layers_dims) - 1 # integer representing the number of layers
+     
+    for l in range(1, L + 1):
+        parameters['W' + str(l)] = np.random.randn(layers_dims[l], layers_dims[l-1]) * (np.sqrt(2. / layers_dims[l-1]))
+        parameters['b' + str(l)] = np.zeros((layers_dims[l], 1))
+        
+    return parameters
 def initialize_parameters_deep(layer_dims):
     """
     Arguments:
@@ -106,7 +128,7 @@ def initialize_parameters_deep(layer_dims):
     L = len(layer_dims)            # number of layers in the network
 
     for l in range(1, L):
-        parameters['W' + str(l)] = np.random.randn(layer_dims[l], layer_dims[l-1]) * 0.01
+        parameters['W' + str(l)] = np.random.randn(layer_dims[l], layer_dims[l-1]) * 0.0001
         parameters['b' + str(l)] = np.zeros((layer_dims[l], 1)) 
         
         assert(parameters['W' + str(l)].shape == (layer_dims[l], layer_dims[l-1]))
@@ -193,7 +215,7 @@ def L_model_forward(X, parameters):
     AL, cache = linear_activation_forward(A, parameters["W" + str(L)], parameters["b" + str(L)], activation='sigmoid')
     caches.append(cache)
     
-    assert(AL.shape == (1,X.shape[1]))
+    #assert(AL.shape == (1,X.shape[1])) # WHYYY ???
     return AL, caches
 
 def compute_cost(AL, Y):
@@ -207,7 +229,7 @@ def compute_cost(AL, Y):
     Returns:
     cost -- cross-entropy cost
     """
-    
+    AL = change_zeros_and_ones_y(AL)
     m = Y.shape[1]
 
     # Compute loss from aL and y.
@@ -215,6 +237,48 @@ def compute_cost(AL, Y):
     
     cost = np.squeeze(cost)      # To make sure your cost's shape is what we expect (e.g. this turns [[17]] into 17).
     assert(cost.shape == ())
+    
+    return cost
+def compute_cost_2(a3, Y):
+    
+    """
+    Implement the cost function
+    
+    Arguments:
+    a3 -- post-activation, output of forward propagation
+    Y -- "true" labels vector, same shape as a3
+    
+    Returns:
+    cost - value of the cost function
+    """
+    m = Y.shape[1]
+    
+    logprobs = np.multiply(-np.log(a3),Y) + np.multiply(-np.log(1 - a3), 1 - Y)
+    cost = 1./m * np.sum(logprobs)
+    
+    return cost
+def compute_cost_with_regularization(A3, Y, parameters, lambd=0.1):
+    """
+    Implement the cost function with L2 regularization. See formula (2) above.
+    
+    Arguments:
+    A3 -- post-activation, output of forward propagation, of shape (output size, number of examples)
+    Y -- "true" labels vector, of shape (output size, number of examples)
+    parameters -- python dictionary containing parameters of the model
+    
+    Returns:
+    cost - value of the regularized loss function (formula (2))
+    """
+    m = Y.shape[1]
+    W1 = parameters["W1"]
+    W2 = parameters["W2"]
+    W3 = parameters["W3"]
+    
+    cross_entropy_cost = compute_cost(A3, Y) # This gives you the cross-entropy part of the cost
+    
+    L2_regularization_cost = (1. / m)*(lambd / 2) * (np.sum(np.square(W1)) + np.sum(np.square(W2)) + np.sum(np.square(W3)))
+    
+    cost = cross_entropy_cost + L2_regularization_cost
     
     return cost
     
@@ -354,6 +418,8 @@ def L_layer_model(X, Y, layers_dims, learning_rate = 0.0075, num_iterations = 30
     costs = []                         # keep track of cost
     
     # Parameters initialization.
+    
+    #parameters = initialize_parameters_deep(layers_dims)
     parameters = initialize_parameters_deep(layers_dims)
     
     # Loop (gradient descent)
@@ -828,25 +894,35 @@ def create_train_test(x,y,pourcentage_of_test=0.8): #pourcentage_of_test
     return train_x, train_y, test_x, test_y
 
 ##
-
+def change_zeros_and_ones_y(AL):
+    for i in range(0,AL.shape[0]):
+        for j in range(0, AL.shape[1]):
+            if AL[i][j]==0:
+                AL[i][j]=10**(-6)
+            if AL[i][j]==1:
+                AL[i][j]=1-10**(-6)
+    return AL
 
 ## Time to have result !
 
 #images = create_librairy_images()
 
+print("Etape 1 : Done")
+
 #x,y=create_x_and_y(images, 100, shuffle=True, video=7,image=30) 
-x,y=create_x_and_y_version2(images, shuffle=True) 
+
+#x,y=create_x_and_y_version2(images, shuffle=True) 
 
 #x,y=balance_x_y(x,y, True)
 
 
-print("Size of the data set :" +str(len(x)) )
+print("Etape 2 : Done --- Size of the data set :" +str(len(x)) )
 
 train_x, train_y, test_x, test_y = create_train_test(x,y,pourcentage_of_test=0.8)
-
-layers_dims=[25920,200,80] #25920 = 90*72*4, 80=10*8
+print("Etape 3 : Done")
+layers_dims=[25920,100,80] #25920 = 90*72*4, 80=10*8
 #layers_dims=[4,2,1]
-parameters = L_layer_model(train_x, train_y, layers_dims, learning_rate = 0.0075, num_iterations = 200, print_cost = True)
+parameters = L_layer_model(train_x, train_y, layers_dims, learning_rate = 0.0075, num_iterations = 2000, print_cost = True)
 
 print("Train accuracy :")
 pred_train = predict(train_x, train_y, parameters)
