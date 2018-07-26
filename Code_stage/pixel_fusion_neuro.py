@@ -11,6 +11,8 @@ import matplotlib.pyplot as plt
 import time 
 import random as rd
 import cv2
+import os
+np.set_printoptions(threshold=np.nan)
 
 ## Required functions
 
@@ -89,7 +91,7 @@ def sigmoid_backward(dA, cache):
     return dZ
 
 ## Core functions
-def initialize_parameters_he(layers_dims):
+def initialize_parameters_he(layers_dims,init_multiplier=1):
     """
     Arguments:
     layer_dims -- python array (list) containing the size of each layer.
@@ -108,11 +110,11 @@ def initialize_parameters_he(layers_dims):
     L = len(layers_dims) - 1 # integer representing the number of layers
      
     for l in range(1, L + 1):
-        parameters['W' + str(l)] = np.random.randn(layers_dims[l], layers_dims[l-1]) * (np.sqrt(2. / layers_dims[l-1]))
+        parameters['W' + str(l)] = np.random.randn(layers_dims[l], layers_dims[l-1]) *init_multiplier* (np.sqrt(2. / layers_dims[l-1]))
         parameters['b' + str(l)] = np.zeros((layers_dims[l], 1))
         
     return parameters
-def initialize_parameters_deep(layer_dims):
+def initialize_parameters_deep(layer_dims, init_multiplier):
     """
     Arguments:
     layer_dims -- python array (list) containing the dimensions of each layer in our network
@@ -128,7 +130,7 @@ def initialize_parameters_deep(layer_dims):
     L = len(layer_dims)            # number of layers in the network
 
     for l in range(1, L):
-        parameters['W' + str(l)] = np.random.randn(layer_dims[l], layer_dims[l-1]) * 0.0001
+        parameters['W' + str(l)] = np.random.randn(layer_dims[l], layer_dims[l-1]) * init_multiplier
         parameters['b' + str(l)] = np.zeros((layer_dims[l], 1)) 
         
         assert(parameters['W' + str(l)].shape == (layer_dims[l], layer_dims[l-1]))
@@ -157,7 +159,60 @@ def linear_forward(A, W, b):
     cache = (A, W, b)
     
     return Z, cache
-
+def forward_propagation_with_dropout(X, parameters, keep_prob = 0.5): #ONLY IF LEN(layers_dims)==3 !!
+    """
+    Implements the forward propagation: LINEAR -> RELU + DROPOUT -> LINEAR -> RELU + DROPOUT -> LINEAR -> SIGMOID.
+    
+    Arguments:
+    X -- input dataset, of shape (2, number of examples)
+    parameters -- python dictionary containing your parameters "W1", "b1", "W2", "b2", "W3", "b3":
+                    W1 -- weight matrix of shape (20, 2)
+                    b1 -- bias vector of shape (20, 1)
+                    W2 -- weight matrix of shape (3, 20)
+                    b2 -- bias vector of shape (3, 1)
+                    W3 -- weight matrix of shape (1, 3)
+                    b3 -- bias vector of shape (1, 1)
+    keep_prob - probability of keeping a neuron active during drop-out, scalar
+    
+    Returns:
+    A3 -- last activation value, output of the forward propagation, of shape (1,1)
+    cache -- tuple, information stored for computing the backward propagation
+    """
+    
+    np.random.seed(1)
+    
+    # retrieve parameters
+    W1 = parameters["W1"]
+    b1 = parameters["b1"]
+    W2 = parameters["W2"]
+    b2 = parameters["b2"]
+    W3 = parameters["W3"]
+    b3 = parameters["b3"]
+    
+    # LINEAR -> RELU -> LINEAR -> RELU -> LINEAR -> SIGMOID
+    Z1 = np.dot(W1, X) + b1
+    A1 = relu(Z1)                                     # Steps 1-4 below correspond to the Steps 1-4 described above. 
+    D1 = np.random.rand(A1.shape[0],A1.shape[1])      # Step 1: initialize matrix D1 = np.random.rand(..., ...)
+    for i in range(0,D1.shape[0]):
+        for j in range (0,D1.shape[1]):
+            D1[i][j] = ( D1[i][j] < keep_prob )       # Step 2: convert entries of D1 to 0 or 1 (using keep_prob as the threshold)
+    A1 = A1 * D1                                      # Step 3: shut down some neurons of A1
+    A1 = A1 / keep_prob                               # Step 4: scale the value of neurons that haven't been shut down
+    Z2 = np.dot(W2, A1) + b2
+    A2 = relu(Z2)
+    D2 = np.random.rand(A2.shape[0], A2.shape[1])    # Step 1: initialize matrix D1 = np.random.rand(..., ...)
+    for i in range(0,D2.shape[0]):
+        for j in range (0,D2.shape[1]):
+            D2[i][j] = ( D2[i][j] < keep_prob )                          # Step 2: convert entries of D1 to 0 or 1 (using keep_prob as the threshold)
+    A2 = A2 * D2                                      # Step 3: shut down some neurons of A1
+    A2 = A2 / keep_prob                                         # Step 4: scale the value of neurons that haven't been shut down
+    Z3 = np.dot(W3, A2) + b3
+    A3 = sigmoid(Z3)
+    
+    cache = (Z1, D1, A1, W1, b1, Z2, D2, A2, W2, b2, Z3, A3, W3, b3)
+    
+    return A3, cache
+    
 def linear_activation_forward(A_prev, W, b, activation):
     """
     Implement the forward propagation for the LINEAR->ACTIVATION layer
@@ -398,7 +453,7 @@ def update_parameters(parameters, grads, learning_rate):
         
     return parameters
 
-def L_layer_model(X, Y, layers_dims, learning_rate = 0.0075, num_iterations = 3000, print_cost=False):#lr was 0.009
+def L_layer_model(X, Y, layers_dims, init_multiplier=0.01, learning_rate = 0.0075, num_iterations = 3000, print_cost=False):#lr was 0.009
     """
     Implements a L-layer neural network: [LINEAR->RELU]*(L-1)->LINEAR->SIGMOID.
     
@@ -420,7 +475,7 @@ def L_layer_model(X, Y, layers_dims, learning_rate = 0.0075, num_iterations = 30
     # Parameters initialization.
     
     #parameters = initialize_parameters_deep(layers_dims)
-    parameters = initialize_parameters_deep(layers_dims)
+    parameters = initialize_parameters_deep(layers_dims,init_multiplier)
     
     # Loop (gradient descent)
     for i in range(0, num_iterations):
@@ -428,6 +483,8 @@ def L_layer_model(X, Y, layers_dims, learning_rate = 0.0075, num_iterations = 30
         # Forward propagation: [LINEAR -> RELU]*(L-1) -> LINEAR -> SIGMOID.
         AL, caches = L_model_forward(X, parameters)
         
+        if i==(num_iterations-1):
+            print(AL)
         # Compute cost.
         cost = compute_cost(AL, Y)
     
@@ -486,6 +543,94 @@ def predict(X, y, parameters):
         
     return p
 
+##
+def create_x_and_y_for_test_version2(parameters,video_num,image_num,steps=1):
+    
+    assert(video_num>= 1 and video_num<= 7)
+    assert(image_num>= 1 and image_num<= 30)
+    
+    
+    flag_create_array_x=True
+    
+    img_i = cv2.imread(path+"/v"+str(video_num)+"/intensity/3s_i"+str(image_num)+".jpg", 0)
+    resized_img_i = cv2.resize(img_i, (360, 288),interpolation = cv2.INTER_AREA) 
+    cv2.imshow("img_i",resized_img_i)
+
+    img_c = cv2.imread(path+"/v"+str(video_num)+"/color/3s_c"+str(image_num)+".jpg", 0)
+    resized_img_c = cv2.resize(img_c, (360, 288),interpolation = cv2.INTER_AREA) 
+    cv2.imshow("img_c",resized_img_c)
+    
+    img_m = cv2.imread(path+"/v"+str(video_num)+"/motion/3s_m"+str(image_num)+".jpg", 0)
+    resized_img_m = cv2.resize(img_m, (360, 288),interpolation = cv2.INTER_AREA) 
+    cv2.imshow("img_m",resized_img_m)
+    
+    img_o = cv2.imread(path+"/v"+str(video_num)+"/orientation/3s_o"+str(image_num)+".jpg", 0)
+    resized_img_o = cv2.resize(img_o, (360, 288),interpolation = cv2.INTER_AREA) 
+    cv2.imshow("img_o",resized_img_o)
+    
+    img_ssxs = cv2.imread(path+"/v"+str(video_num)+"/eye_tracker/ss_xs_visual_"+str(image_num)+".jpg", 0)
+    resized_img_ssxs = cv2.resize(img_ssxs, (360, 288),interpolation = cv2.INTER_AREA) 
+    cv2.imshow("img_ssxs",resized_img_ssxs)
+    
+    img_eye_tracker = cv2.imread(path+"/v"+str(video_num)+"/eye_tracker/x"+str(image_num)+".jpg", 0)
+    resized_img_eye_tracker = cv2.resize(img_eye_tracker, (360, 288),interpolation = cv2.INTER_AREA) 
+    cv2.imshow("img_eye_tracker",resized_img_eye_tracker)
+    
+    img_eye_tracker_ss = cv2.imread(path+"/v"+str(video_num)+"/eye_tracker/ss_x"+str(image_num)+".jpg", 0)
+    resized_img_eye_tracker_ss = cv2.resize(img_eye_tracker_ss, (360, 288),interpolation = cv2.INTER_AREA) 
+    cv2.imshow("img_eye_tracker_ss",resized_img_eye_tracker_ss)
+    
+    img_eye_tracker_ss_real = cv2.imread(path+"/v"+str(video_num)+"/eye_tracker/ss_xs"+str(image_num)+".jpg", 0)
+    resized_img_eye_tracker_ssxs = cv2.resize(img_eye_tracker_ss_real, (360, 288),interpolation = cv2.INTER_AREA) 
+    cv2.imshow("img_eye_tracker_ssxs",resized_img_eye_tracker_ssxs)
+    
+    for i in range (0, img_i.shape[0],steps): # lign all images have the same shape, images["v1i1"] or images["v5m19"]
+        for j in range(0, img_i.shape[1],steps): # colomn
+            pixel_i = img_i[i][j]
+            pixel_c = img_c[i][j]
+            pixel_m = img_m[i][j]
+            pixel_o = img_o[i][j]
+            
+
+            if flag_create_array_x:
+                pixel_i = img_i[i][j]
+                pixel_c = img_c[i][j]
+                pixel_m = img_m[i][j]
+                pixel_o = img_o[i][j]
+                
+                array_x=np.array([[pixel_i,pixel_c,pixel_m,pixel_o]])
+                flag_create_array_x=False
+            else:
+                pixel_i = img_i[i][j]
+                pixel_c = img_c[i][j]
+                pixel_m = img_m[i][j]
+                pixel_o = img_o[i][j]
+                
+                array_x=np.concatenate(( array_x   ,  np.array([[pixel_i,pixel_c,pixel_m,pixel_o]])   ), axis=1)
+                        
+    probas, caches = L_model_forward(array_x.T, parameters)
+    
+    print("Construction de y_neuro et y_neuro_visuel :")
+    
+    y_neuro=np.zeros((8,10)) 
+    y_neuro_visuel=np.zeros((8,10)) 
+    for k in range (0,probas.shape[1]): # probas.shape[1] = 10 * 8 = 80
+        i=k//10
+        j=k%10
+        if round(probas[0][k])==0:
+            y_neuro[i][j] = 0
+            y_neuro_visuel[i][j] =0
+        else:
+            y_neuro[i][j] = 1
+            y_neuro_visuel[i][j] = 255
+    
+    resized_img_y = cv2.resize(y_neuro_visuel, (360, 288),interpolation = cv2.INTER_AREA) 
+    cv2.imshow('image_created_by_neuro',resized_img_y)
+
+    
+    return y_neuro,y_neuro_visuel
+    
+    
 def create_x_and_y_for_test(images,parameters,video_num,image_num,steps=1):
     
     assert(video_num>= 1 and video_num<= 7)
@@ -537,8 +682,6 @@ def create_x_and_y_for_test(images,parameters,video_num,image_num,steps=1):
     cv2.imshow('image',y_neuro_visuel)
     cv2.resizeWindow('image', 720,576)
     
-    
-    
     return y_neuro,y_neuro_visuel
     
 def create_eye_tracker_with_neuro(x, parameters):
@@ -547,24 +690,8 @@ def create_eye_tracker_with_neuro(x, parameters):
     
 
 
-def print_mislabeled_images(classes, X, y, p):
-    """
-    Plots images where predictions and truth were different.
-    X -- dataset
-    y -- true labels
-    p -- predictions
-    """
-    a = p + y
-    mislabeled_indices = np.asarray(np.where(a == 1))
-    plt.rcParams['figure.figsize'] = (40.0, 40.0) # set default size of plots
-    num_images = len(mislabeled_indices[0])
-    for i in range(num_images):
-        index = mislabeled_indices[1][i]
-        
-        plt.subplot(2, num_images, i + 1)
-        plt.imshow(X[:,index].reshape(64,64,3), interpolation='nearest')
-        plt.axis('off')
-        plt.title("Prediction: " + classes[int(p[0,index])].decode("utf-8") + " \n Class: " + classes[y[0,index]].decode("utf-8"))
+#def print_mislabeled_images(classes, X, y, p):
+    
 
 ## Path !! YOU HAVE TO CHANGE IT DO YOUR CONFIGURATION !!
 
@@ -607,7 +734,7 @@ def image_resize(image, width = None, height = None, inter = cv2.INTER_AREA):
 def resize_data_set():
     for k in range(1,7+1): #Number of video
         for i in range (1, 30+1): #Number of picture in each video, limited by eye_tracker
-            
+            """
             img_i =  cv2.imread(path+"/v"+str(k)+"/intensity/i"+str(i)+".jpg", 0) 
             cv2.imwrite(path+"/v"+str(k)+"/intensity/3s_i"+str(i)+".jpg",image_resize(img_i,width=90) )
             
@@ -622,36 +749,53 @@ def resize_data_set():
             
             img_x =  cv2.imread(path+"/v"+str(k)+"/eye_tracker/x"+str(i)+".jpg", 0) 
             cv2.imwrite(path+"/v"+str(k)+"/eye_tracker/4s_x"+str(i)+".jpg",image_resize(img_x,width=45) )
-            
+            """
             img_x =  cv2.imread(path+"/v"+str(k)+"/eye_tracker/x"+str(i)+".jpg", 0) 
-            cv2.imwrite(path+"/v"+str(k)+"/eye_tracker/ss_x"+str(i)+".jpg",image_resize(img_x,width=10) )
+            copy_img_x=np.copy(img_x)
+            cv2.imwrite(path+"/v"+str(k)+"/eye_tracker/ss_x"+str(i)+".jpg",image_resize(copy_img_x,width=10) )
 
 ## Creating eye_tracker_simplified in 0 and 1
+def clear_eye_tracker_data_base():
+    for k in range(1,7+1): #Number of video
+        for i in range (1, 30+1): #Number of picture in each video, limited by eye_tracker
+            #os.remove(path+"/v"+str(k)+"/eye_tracker/4s_x"+str(i)+".jpg")
+            #os.remove(path+"/v"+str(k)+"/eye_tracker/4s_xs"+str(i)+".jpg")
+           # os.remove(path+"/v"+str(k)+"/eye_tracker/s_xs_visual"+str(i)+".jpg")
+            os.remove(path+"/v"+str(k)+"/eye_tracker/ss_xs_visual_"+str(i)+".jpg")
+           # os.remove(path+"/v"+str(k)+"/eye_tracker/ss_x"+str(i)+".jpg")
+            os.remove(path+"/v"+str(k)+"/eye_tracker/ss_xs"+str(i)+".jpg")
+            #os.remove(path+"/v"+str(k)+"/eye_tracker/xs_visual_"+str(i)+".jpg")
+            #os.remove(path+"/v"+str(k)+"/eye_tracker/xs"+str(i)+".jpg")
+            
+    
 
-def create_eye_tracker_simplified():
+def create_eye_tracker_simplified(seuil_div):
     for k in range(1,7+1): #Number of video
         for i in range (1, 30+1): #Number of picture in each video, limited by eye_tracker
             img = cv2.imread(path+"/v"+str(k)+"/eye_tracker/ss_x"+str(i)+".jpg", 0) # 0 means gray_scale
+            img_copy_1=np.copy(img)
+            img_copy_2=np.copy(img)
+            cv2.imwrite(path+"/v"+str(k)+"/eye_tracker/ss_xs"+str(i)+".jpg",simplify_img(img_copy_1,seuil_div,1))
             
-            cv2.imwrite(path+"/v"+str(k)+"/eye_tracker/ss_xs"+str(i)+".jpg",simplify_img(img,2,1))
-            
-            cv2.imwrite(path+"/v"+str(k)+"/eye_tracker/ss_xs_visual_"+str(i)+".jpg",simplify_img(img,2,255))
+            cv2.imwrite(path+"/v"+str(k)+"/eye_tracker/ss_xs_visual_"+str(i)+".jpg",simplify_img(img_copy_2,seuil_div,255))
 
 
 
 def simplify_img(img, seuil_division, high=1): # high = 1 or 255
     # First, we find the maximum pixel in the picture
     temp_max = img[0][0]
+    i_max,j_max=0,0
     for i in range (0, img.shape[0]): 
         for j in range(0, img.shape[1]): 
             if img[i][j] > temp_max :
                 temp_max = img[i][j]
-    max = temp_max
+                i_max,j_max=i,j
+
     
     #Then, we change pixel in either 0 or 1/255
     for i in range (0, img.shape[0]): 
         for j in range(0, img.shape[1]): 
-            if img[i][j] > (max/seuil_division):
+            if img[i][j] >= (img[i_max][j_max]/seuil_division):
                 img[i][j] = high # Put 255 if you want to cv2.imshow('image',img) and see what it is doing
             else:
                 img[i][j] = 0
@@ -690,14 +834,16 @@ def create_librairy_images():
             img_o =  cv2.imread(path+"/v"+str(k)+"/orientation/3s_o"+str(i)+".jpg", 0) 
             images["v"+str(k)+"3so"+str(i)] = img_o
             
-            img_xs = cv2.imread(path+"/v"+str(k)+"/eye_tracker/xs"+str(i)+".jpg", 0) 
-            images["v"+str(k)+"xs"+str(i)] = img_xs
+            img_xs = cv2.imread(path+"/v"+str(k)+"/eye_tracker/ss_xs_visual_"+str(i)+".jpg", 0) 
+            images["v"+str(k)+"ssxs_visual_"+str(i)] = img_xs
             
-            img_xs = cv2.imread(path+"/v"+str(k)+"/eye_tracker/4s_xs"+str(i)+".jpg", 0) 
-            images["v"+str(k)+"4sxs"+str(i)] = img_xs
+
             
-            img_xs = cv2.imread(path+"/v"+str(k)+"/eye_tracker/ss_xs"+str(i)+".jpg", 0) 
-            images["v"+str(k)+"ssxs"+str(i)] = img_xs
+            img_ssxs = cv2.imread(path+"/v"+str(k)+"/eye_tracker/ss_xs"+str(i)+".jpg", 0) 
+            images["v"+str(k)+"ssxs"+str(i)] = img_ssxs
+            
+            img_ssx = cv2.imread(path+"/v"+str(k)+"/eye_tracker/ss_x"+str(i)+".jpg", 0) 
+            images["v"+str(k)+"ssx"+str(i)] = img_ssx
             
     return images
         
@@ -756,7 +902,7 @@ def create_x_and_y(images, steps ,shuffle,video,image):
         assert(len(x)==len(y))
         return x,y
 
-def create_x_and_y_version2(images, shuffle, steps=1,video=7,image=30):
+def create_x_and_y_version2(shuffle, steps=1,video=7,image=30):
     assert(video>=1 and video<=7)
     assert(image>=1 and image<=30)
     
@@ -768,38 +914,46 @@ def create_x_and_y_version2(images, shuffle, steps=1,video=7,image=30):
     for k in range(1,video+1): # Number of video
         for l in range (1, image+1): # Number of picture in each video, limited by eye_tracker
         
+            img=cv2.imread(path+"/v1/intensity/3s_i1.jpg", 0)# lign all 3s images have the same shape, 90*72 ,images["v13si1"] or images["v53sm19"]
             flag_create_array_x,flag_create_array_y=True,True
-            for i in range (0, images["v13si1"].shape[0],steps): # lign all 3s images have the same shape, 90*72 ,images["v13si1"] or images["v53sm19"]
-                for j in range(0, images["v13si1"].shape[1],steps): # colomn
+            
+            img_i = cv2.imread(path+"/v"+str(k)+"/intensity/3s_i"+str(l)+".jpg", 0)
+            img_c = cv2.imread(path+"/v"+str(k)+"/color/3s_c"+str(l)+".jpg", 0)
+            img_m = cv2.imread(path+"/v"+str(k)+"/motion/3s_m"+str(l)+".jpg", 0)
+            img_o = cv2.imread(path+"/v"+str(k)+"/orientation/3s_o"+str(l)+".jpg", 0)
+            img_ssxs =  cv2.imread(path+"/v"+str(k)+"/eye_tracker/ss_xs"+str(l)+".jpg", 0)
+            for i in range (0, img.shape[0],steps): 
+                for j in range(0, img.shape[1],steps): # colomn
                 
                     if flag_create_array_x:
-                        pixel_i = images["v"+str(k)+"3si"+str(l)][i][j]
-                        pixel_c = images["v"+str(k)+"3sc"+str(l)][i][j]
-                        pixel_m = images["v"+str(k)+"3sm"+str(l)][i][j]
-                        pixel_o = images["v"+str(k)+"3so"+str(l)][i][j]
+                        pixel_i = img_i[i][j]
+                        pixel_c = img_c[i][j]
+                        pixel_m = img_m[i][j]
+                        pixel_o = img_o[i][j]
                         
                         array_x=np.array([[pixel_i,pixel_c,pixel_m,pixel_o]])
                         flag_create_array_x=False
                     else:
-                        pixel_i = images["v"+str(k)+"3si"+str(l)][i][j]
-                        pixel_c = images["v"+str(k)+"3sc"+str(l)][i][j]
-                        pixel_m = images["v"+str(k)+"3sm"+str(l)][i][j]
-                        pixel_o = images["v"+str(k)+"3so"+str(l)][i][j]
+                        pixel_i = img_i[i][j]
+                        pixel_c = img_c[i][j]
+                        pixel_m = img_m[i][j]
+                        pixel_o = img_o[i][j]
                         
                         array_x=np.concatenate(( array_x   ,  np.array([[pixel_i,pixel_c,pixel_m,pixel_o]])   ), axis=1)
                     
             x[str(compt)]=array_x
-
-            for i in range (0, images["v1ssxs1"].shape[0],steps): # lign all ssxs images have the same shape, 10*8 , images["v14sxs1"] or images["v54sxs19"]
-                for j in range(0, images["v1ssxs1"].shape[1],steps):
+            
+            img_2 = cv2.imread(path+"/v1/eye_tracker/ss_xs1.jpg", 0)
+            for i in range (0, img_2.shape[0],steps): # lign all ssxs images have the same shape, 10*8 , images["v14sxs1"] or images["v54sxs19"]
+                for j in range(0, img_2.shape[1],steps):
                     
                     if flag_create_array_y:
-                        pixel_xs = images["v"+str(k)+"ssxs"+str(l)][i][j]
+                        pixel_xs = img_ssxs[i][j]
                         
                         array_y=np.array([[pixel_xs]])
                         flag_create_array_y=False
                     else:
-                        pixel_xs = images["v"+str(k)+"ssxs"+str(l)][i][j]
+                        pixel_xs = img_ssxs[i][j]
                         
                         array_y=np.concatenate(( array_y   ,  np.array([[pixel_xs]])   ), axis=1)
                     
@@ -829,6 +983,27 @@ def create_x_and_y_version2(images, shuffle, steps=1,video=7,image=30):
 ## Balance 1 and 0
 def taux_de_1(y):
     n=len(y)
+    compt=0
+    for k in range(1,n):
+        if(y[str(k)]==1):
+            compt+=1
+    return compt, compt/n
+
+def taux_de_0_version2(images):
+    compt_all,compt_zero=0,0
+    for k in range(1,video+1): # Number of video
+        for l in range (1, image+1): # Number of picture in each video, limited by eye_tracker
+        
+            image_ssxs = images["v"+str(k)+"3si"+str(l)]
+        
+            for i in range (0, images["v13si1"].shape[0],steps): # lign all 3s images have the same shape, 90*72 ,images["v13si1"] or images["v53sm19"]
+                for j in range(0, images["v13si1"].shape[1],steps): # colomn
+                
+                    if flag_create_array_x:
+                        pixel_i = images["v"+str(k)+"3si"+str(l)][i][j]
+                        pixel_c = images["v"+str(k)+"3sc"+str(l)][i][j]
+                        pixel_m = images["v"+str(k)+"3sm"+str(l)][i][j]
+                        pixel_o = images["v"+str(k)+"3so"+str(l)][i][j]
     compt=0
     for k in range(1,n):
         if(y[str(k)]==1):
@@ -905,28 +1080,29 @@ def change_zeros_and_ones_y(AL):
 
 ## Time to have result !
 
-#images = create_librairy_images()
+# NOT USED ANYMORE create_eye_tracker_simplified(seuil_div=10)
+# NOT USED ANYMORE images = create_librairy_images()
 
-print("Etape 1 : Done")
+#print("Etape 1 : Done")
 
 #x,y=create_x_and_y(images, 100, shuffle=True, video=7,image=30) 
 
-#x,y=create_x_and_y_version2(images, shuffle=True) 
+#x,y=create_x_and_y_version2(shuffle=True) 
 
 #x,y=balance_x_y(x,y, True)
 
 
-print("Etape 2 : Done --- Size of the data set :" +str(len(x)) )
+print("Etape 1 : Done --- Size of the data set :" +str(len(x)) )
 
 train_x, train_y, test_x, test_y = create_train_test(x,y,pourcentage_of_test=0.8)
-print("Etape 3 : Done")
-layers_dims=[25920,100,80] #25920 = 90*72*4, 80=10*8
+print("Etape 2 : Done")
+layers_dims=[25920,120,80] #25920 = 90*72*4, 80=10*8
 #layers_dims=[4,2,1]
-parameters = L_layer_model(train_x, train_y, layers_dims, learning_rate = 0.0075, num_iterations = 2000, print_cost = True)
+parameters = L_layer_model(train_x, train_y,layers_dims, init_multiplier=0.001, learning_rate = 0.0075, num_iterations = 300, print_cost = True)
 
 print("Train accuracy :")
 pred_train = predict(train_x, train_y, parameters)
 print("Test accuracy :")
 pred_testpred_tes  = predict(test_x, test_y, parameters)
 
-#y_neuro,y_neuro_visuel = create_x_and_y_for_test(images,parameters,1,1,steps=1)
+y_neuro,y_neuro_visuel = create_x_and_y_for_test_version2(parameters,1,1,steps=1)
